@@ -45,7 +45,7 @@ fn process_args(args: Vec<String>) -> Vec<String> {
     match subcommand_pos {
         Some(pos) => {
             let subcommand = &args[pos];
-            if needs_oneline_redaction(subcommand) && !has_oneline_flag(&args) {
+            if needs_oneline_redaction(subcommand) && !has_flag_conflict(&args) {
                 inject_oneline_after(args, pos)
             } else {
                 args
@@ -90,8 +90,9 @@ fn needs_oneline_redaction(subcommand: &str) -> bool {
 }
 
 /// Check if --oneline flag is already present in the arguments.
-fn has_oneline_flag(args: &[String]) -> bool {
-    args.iter().any(|arg| arg == "--oneline")
+fn has_flag_conflict(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| arg == "--oneline" || arg == "-h" || arg == "--help")
 }
 
 /// Insert --oneline flag immediately after the subcommand position.
@@ -180,7 +181,7 @@ mod tests {
     #[case(&["log"], false)]
     #[case(&["log", "--all"], false)]
     #[case(&[], false)]
-    fn test_has_oneline_flag(#[case] input: &[&str], #[case] expected: bool) {
-        assert_eq!(has_oneline_flag(&args(input)), expected);
+    fn test_has_flag_conflict(#[case] input: &[&str], #[case] expected: bool) {
+        assert_eq!(has_flag_conflict(&args(input)), expected);
     }
 }
