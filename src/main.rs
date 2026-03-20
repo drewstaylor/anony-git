@@ -23,9 +23,7 @@ fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let git_args = process_args(args);
 
-    let output = Command::new("git")
-        .args(&git_args)
-        .output();
+    let output = Command::new("git").args(&git_args).output();
 
     match output {
         Ok(result) => {
@@ -140,8 +138,8 @@ mod tests {
     #[case(&["checkout", "-b", "new-branch"], &["checkout", "-b", "new-branch"])]
     #[case(&["-C", "/path", "status"], &["-C", "/path", "status"])]
     // Edge cases
-    #[case(&[], &[])]  // No arguments
-    #[case(&["--help"], &["--help"])]  // Just a flag, no subcommand
+    #[case(&[], &[])] // No arguments
+    #[case(&["--help"], &["--help"])] // Just a flag, no subcommand
     #[case(&["--version"], &["--version"])]
     fn test_process_args(#[case] input: &[&str], #[case] expected: &[&str]) {
         let result = process_args(args(input));
@@ -157,7 +155,7 @@ mod tests {
     #[case(&["--git-dir", "/path/.git", "-c", "key=val", "show"], Some(4))]
     #[case(&[], None)]
     #[case(&["--help"], None)]
-    #[case(&["-C", "/path"], None)]  // Flag with value but no subcommand
+    #[case(&["-C", "/path"], None)] // Flag with value but no subcommand
     fn test_find_subcommand_position(#[case] input: &[&str], #[case] expected: Option<usize>) {
         let result = find_subcommand_position(&args(input));
         assert_eq!(result, expected);
@@ -169,8 +167,8 @@ mod tests {
     #[case("status", false)]
     #[case("diff", false)]
     #[case("commit", false)]
-    #[case("blame", false)]  // TODO: Future support
-    #[case("shortlog", false)]  // TODO: Future support
+    #[case("blame", false)] // TODO: Future support
+    #[case("shortlog", false)] // TODO: Future support
     fn test_needs_oneline_redaction(#[case] subcommand: &str, #[case] expected: bool) {
         assert_eq!(needs_oneline_redaction(subcommand), expected);
     }
