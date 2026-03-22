@@ -18,7 +18,7 @@ When `anony-git` receives a command that exposes author data, it injects the `--
 |---|---|
 | `git log` | Redacted |
 | `git show` | Redacted |
-| `git blame` | Planned |
+| `git blame` | Redacted |
 | `git shortlog` | Planned |
 
 All other commands pass through to `git` without modification.
@@ -74,5 +74,4 @@ Restart Cursor after saving the setting.
 
 ## Roadmap
 
-- `git blame` — shows author per line; needs a different approach as `--oneline` is not supported
 - `git shortlog` — groups commits by author; its core purpose is to display authors, so this will require a custom formatting strategy
