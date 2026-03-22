@@ -89,7 +89,7 @@ fn needs_oneline_redaction(subcommand: &str) -> bool {
     matches!(subcommand, "log" | "show")
 }
 
-/// Check if --oneline flag is already present in the arguments.
+/// Check if --oneline flag, or help flags, already present in the arguments.
 fn has_flag_conflict(args: &[String]) -> bool {
     args.iter()
         .any(|arg| arg == "--oneline" || arg == "-h" || arg == "--help")
