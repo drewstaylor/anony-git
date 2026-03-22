@@ -118,9 +118,7 @@ fn process_blame_args(args: Vec<String>, _pos: usize) -> Vec<String> {
     let filtered: Vec<String> = args
         .into_iter()
         .filter(|arg| {
-            !BLAME_BLOCKED_FLAGS.contains(&arg.as_str())
-                && arg != "-s"
-                && arg != "--no-show-email"
+            !BLAME_BLOCKED_FLAGS.contains(&arg.as_str()) && arg != "-s" && arg != "--no-show-email"
         })
         .collect();
 
