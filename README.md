@@ -4,7 +4,7 @@ A lightweight `git` wrapper that censors Personally Identifiable Information (PI
 
 ## The Problem
 
-AI tools like Claude Code and Cursor routinely read git history for context — commit logs, diffs, and more. Commands like `git log` and `git show` expose author names and email addresses in their output, leaking PII to the model. This can feel intrusive, and creates a friction for teams with strict data handling policies.
+AI tools like Claude Code and Cursor routinely read git history for context — commit logs, diffs, and more. Commands like `git log` and `git show` expose author names and email addresses in their output, leaking PII to the model. This can feel intrusive, and creates friction for teams with strict data handling policies.
 
 `anony-git` strips author information from `git` commands known to leak it.
 
