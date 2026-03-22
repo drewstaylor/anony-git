@@ -3,7 +3,7 @@ use std::process::{Command, exit};
 
 /// Git global options that consume the next argument as a value.
 /// These need to be skipped when searching for the subcommand.
-const GIT_FLAGS_WITH_VALUES: &[&str] = &[
+const GIT_FLAGS_WITH_VALUES: [&str; 7] = [
     "-C",
     "-c",
     "--git-dir",
