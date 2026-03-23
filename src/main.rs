@@ -141,8 +141,10 @@ fn process_blame_args(args: Vec<String>, _pos: usize) -> Vec<String> {
 }
 
 /// Process `git shortlog` arguments: strip any `--group` or `--format` flags
-/// that could reintroduce PII into the grouping, then inject
-/// `--group=format:%as` immediately after the subcommand to group by date.
+/// that could reintroduce PII into the grouping, inject `--group=format:%as`
+/// immediately after the subcommand to group by date, and append `HEAD` if no
+/// revision is present (required when using `--group=format:` to avoid reading
+/// from stdin, which is unsupported with that flag).
 fn process_shortlog_args(args: Vec<String>, _pos: usize) -> Vec<String> {
     let filtered: Vec<String> = args
         .into_iter()
@@ -155,10 +157,17 @@ fn process_shortlog_args(args: Vec<String>, _pos: usize) -> Vec<String> {
 
     let shortlog_pos = find_subcommand_position(&filtered).unwrap_or(0);
 
-    let mut result = Vec::with_capacity(filtered.len() + 1);
+    let has_revision = filtered[shortlog_pos + 1..]
+        .iter()
+        .any(|arg| !arg.starts_with('-'));
+
+    let mut result = Vec::with_capacity(filtered.len() + 2);
     result.extend(filtered[..=shortlog_pos].iter().cloned());
     result.push("--group=format:%as".to_string());
     result.extend(filtered[shortlog_pos + 1..].iter().cloned());
+    if !has_revision {
+        result.push("HEAD".to_string());
+    }
     result
 }
 
@@ -210,12 +219,13 @@ mod tests {
     #[case(&["--no-pager", "blame", "file.rs"], &["--no-pager", "blame", "-s", "--no-show-email", "file.rs"])]
     #[case(&["blame", "-h"], &["blame", "-h"])]
     #[case(&["blame", "--help"], &["blame", "--help"])]
-    // shortlog - should inject --group=format:%as, strip --group/--format flags
-    #[case(&["shortlog"], &["shortlog", "--group=format:%as"])]
-    #[case(&["shortlog", "--group=author"], &["shortlog", "--group=format:%as"])]
-    #[case(&["shortlog", "--format=%an"], &["shortlog", "--group=format:%as"])]
-    #[case(&["shortlog", "-n"], &["shortlog", "--group=format:%as", "-n"])]
-    #[case(&["--no-pager", "shortlog"], &["--no-pager", "shortlog", "--group=format:%as"])]
+    // shortlog - should inject --group=format:%as and HEAD, strip --group/--format flags
+    #[case(&["shortlog"], &["shortlog", "--group=format:%as", "HEAD"])]
+    #[case(&["shortlog", "--group=author"], &["shortlog", "--group=format:%as", "HEAD"])]
+    #[case(&["shortlog", "--format=%an"], &["shortlog", "--group=format:%as", "HEAD"])]
+    #[case(&["shortlog", "-n"], &["shortlog", "--group=format:%as", "-n", "HEAD"])]
+    #[case(&["--no-pager", "shortlog"], &["--no-pager", "shortlog", "--group=format:%as", "HEAD"])]
+    #[case(&["shortlog", "main..feature"], &["shortlog", "--group=format:%as", "main..feature"])]
     #[case(&["shortlog", "-h"], &["shortlog", "-h"])]
     #[case(&["shortlog", "--help"], &["shortlog", "--help"])]
     // Non-redacted commands - should pass through unchanged
@@ -310,21 +320,25 @@ mod tests {
     }
 
     #[rstest]
-    // Basic shortlog - inject --group=format:%as
-    #[case(&["shortlog"], &["shortlog", "--group=format:%as"])]
+    // Basic shortlog - inject --group=format:%as and HEAD (no revision present)
+    #[case(&["shortlog"], &["shortlog", "--group=format:%as", "HEAD"])]
     // --group flag is stripped and replaced
-    #[case(&["shortlog", "--group=author"], &["shortlog", "--group=format:%as"])]
-    #[case(&["shortlog", "--group=committer"], &["shortlog", "--group=format:%as"])]
+    #[case(&["shortlog", "--group=author"], &["shortlog", "--group=format:%as", "HEAD"])]
+    #[case(&["shortlog", "--group=committer"], &["shortlog", "--group=format:%as", "HEAD"])]
     // --format flag is stripped
-    #[case(&["shortlog", "--format=%an"], &["shortlog", "--group=format:%as"])]
-    // Other user flags are preserved
-    #[case(&["shortlog", "-n"], &["shortlog", "--group=format:%as", "-n"])]
-    #[case(&["shortlog", "--numbered"], &["shortlog", "--group=format:%as", "--numbered"])]
+    #[case(&["shortlog", "--format=%an"], &["shortlog", "--group=format:%as", "HEAD"])]
+    // Other user flags are preserved, HEAD still injected (no revision)
+    #[case(&["shortlog", "-n"], &["shortlog", "--group=format:%as", "-n", "HEAD"])]
+    #[case(&["shortlog", "--numbered"], &["shortlog", "--group=format:%as", "--numbered", "HEAD"])]
     // Global flags before subcommand are preserved
-    #[case(&["--no-pager", "shortlog"], &["--no-pager", "shortlog", "--group=format:%as"])]
-    #[case(&["-C", "/path", "shortlog"], &["-C", "/path", "shortlog", "--group=format:%as"])]
+    #[case(&["--no-pager", "shortlog"], &["--no-pager", "shortlog", "--group=format:%as", "HEAD"])]
+    #[case(&["-C", "/path", "shortlog"], &["-C", "/path", "shortlog", "--group=format:%as", "HEAD"])]
     // Blocked and non-blocked flags mixed
-    #[case(&["shortlog", "--group=author", "-n"], &["shortlog", "--group=format:%as", "-n"])]
+    #[case(&["shortlog", "--group=author", "-n"], &["shortlog", "--group=format:%as", "-n", "HEAD"])]
+    // Revision already present - HEAD not injected
+    #[case(&["shortlog", "main..feature"], &["shortlog", "--group=format:%as", "main..feature"])]
+    #[case(&["shortlog", "HEAD~10"], &["shortlog", "--group=format:%as", "HEAD~10"])]
+    #[case(&["shortlog", "-n", "main"], &["shortlog", "--group=format:%as", "-n", "main"])]
     fn test_process_shortlog_args(#[case] input: &[&str], #[case] expected: &[&str]) {
         let a = args(input);
         let pos = find_subcommand_position(&a).unwrap();
