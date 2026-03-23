@@ -24,9 +24,10 @@ const BLAME_BLOCKED_FLAGS: [&str; 5] = [
     "--incremental",
 ];
 
-// TODO: Future support for other commands that leak PII:
-// - `git shortlog`: Groups commits by author. Its purpose is to show authors.
-//   Would need `--format` customization or a different approach.
+/// Flag prefixes that control grouping and formatting in `git shortlog`.
+/// These are stripped before injecting our canonical `--group=format:%as`,
+/// as they could otherwise reintroduce author, email, or display name into output.
+const SHORTLOG_BLOCKED_FLAG_PREFIXES: [&str; 2] = ["--group", "--format"];
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -58,6 +59,8 @@ fn process_args(args: Vec<String>) -> Vec<String> {
                 inject_oneline_after(args, pos)
             } else if needs_blame_redaction(subcommand) && !has_flag_conflict(&args) {
                 process_blame_args(args, pos)
+            } else if needs_shortlog_redaction(subcommand) && !has_flag_conflict(&args) {
+                process_shortlog_args(args, pos)
             } else {
                 args
             }
@@ -105,6 +108,11 @@ fn needs_blame_redaction(subcommand: &str) -> bool {
     subcommand == "blame"
 }
 
+/// Check if the subcommand needs shortlog-specific PII redaction.
+fn needs_shortlog_redaction(subcommand: &str) -> bool {
+    subcommand == "shortlog"
+}
+
 /// Check if --oneline flag, or help flags, are already present in the arguments.
 fn has_flag_conflict(args: &[String]) -> bool {
     args.iter()
@@ -129,6 +137,28 @@ fn process_blame_args(args: Vec<String>, _pos: usize) -> Vec<String> {
     result.push("-s".to_string());
     result.push("--no-show-email".to_string());
     result.extend(filtered[blame_pos + 1..].iter().cloned());
+    result
+}
+
+/// Process `git shortlog` arguments: strip any `--group` or `--format` flags
+/// that could reintroduce PII into the grouping, then inject
+/// `--group=format:%as` immediately after the subcommand to group by date.
+fn process_shortlog_args(args: Vec<String>, _pos: usize) -> Vec<String> {
+    let filtered: Vec<String> = args
+        .into_iter()
+        .filter(|arg| {
+            !SHORTLOG_BLOCKED_FLAG_PREFIXES
+                .iter()
+                .any(|prefix| arg.starts_with(prefix))
+        })
+        .collect();
+
+    let shortlog_pos = find_subcommand_position(&filtered).unwrap_or(0);
+
+    let mut result = Vec::with_capacity(filtered.len() + 1);
+    result.extend(filtered[..=shortlog_pos].iter().cloned());
+    result.push("--group=format:%as".to_string());
+    result.extend(filtered[shortlog_pos + 1..].iter().cloned());
     result
 }
 
@@ -180,6 +210,14 @@ mod tests {
     #[case(&["--no-pager", "blame", "file.rs"], &["--no-pager", "blame", "-s", "--no-show-email", "file.rs"])]
     #[case(&["blame", "-h"], &["blame", "-h"])]
     #[case(&["blame", "--help"], &["blame", "--help"])]
+    // shortlog - should inject --group=format:%as, strip --group/--format flags
+    #[case(&["shortlog"], &["shortlog", "--group=format:%as"])]
+    #[case(&["shortlog", "--group=author"], &["shortlog", "--group=format:%as"])]
+    #[case(&["shortlog", "--format=%an"], &["shortlog", "--group=format:%as"])]
+    #[case(&["shortlog", "-n"], &["shortlog", "--group=format:%as", "-n"])]
+    #[case(&["--no-pager", "shortlog"], &["--no-pager", "shortlog", "--group=format:%as"])]
+    #[case(&["shortlog", "-h"], &["shortlog", "-h"])]
+    #[case(&["shortlog", "--help"], &["shortlog", "--help"])]
     // Non-redacted commands - should pass through unchanged
     #[case(&["status"], &["status"])]
     #[case(&["diff"], &["diff"])]
@@ -229,9 +267,19 @@ mod tests {
     #[case("log", false)]
     #[case("show", false)]
     #[case("status", false)]
-    #[case("shortlog", false)] // TODO: Future support
+    #[case("shortlog", false)]
     fn test_needs_blame_redaction(#[case] subcommand: &str, #[case] expected: bool) {
         assert_eq!(needs_blame_redaction(subcommand), expected);
+    }
+
+    #[rstest]
+    #[case("shortlog", true)]
+    #[case("log", false)]
+    #[case("show", false)]
+    #[case("blame", false)]
+    #[case("status", false)]
+    fn test_needs_shortlog_redaction(#[case] subcommand: &str, #[case] expected: bool) {
+        assert_eq!(needs_shortlog_redaction(subcommand), expected);
     }
 
     #[rstest]
@@ -258,6 +306,29 @@ mod tests {
         let a = args(input);
         let pos = find_subcommand_position(&a).unwrap();
         let result = process_blame_args(a, pos);
+        assert_eq!(result, args(expected));
+    }
+
+    #[rstest]
+    // Basic shortlog - inject --group=format:%as
+    #[case(&["shortlog"], &["shortlog", "--group=format:%as"])]
+    // --group flag is stripped and replaced
+    #[case(&["shortlog", "--group=author"], &["shortlog", "--group=format:%as"])]
+    #[case(&["shortlog", "--group=committer"], &["shortlog", "--group=format:%as"])]
+    // --format flag is stripped
+    #[case(&["shortlog", "--format=%an"], &["shortlog", "--group=format:%as"])]
+    // Other user flags are preserved
+    #[case(&["shortlog", "-n"], &["shortlog", "--group=format:%as", "-n"])]
+    #[case(&["shortlog", "--numbered"], &["shortlog", "--group=format:%as", "--numbered"])]
+    // Global flags before subcommand are preserved
+    #[case(&["--no-pager", "shortlog"], &["--no-pager", "shortlog", "--group=format:%as"])]
+    #[case(&["-C", "/path", "shortlog"], &["-C", "/path", "shortlog", "--group=format:%as"])]
+    // Blocked and non-blocked flags mixed
+    #[case(&["shortlog", "--group=author", "-n"], &["shortlog", "--group=format:%as", "-n"])]
+    fn test_process_shortlog_args(#[case] input: &[&str], #[case] expected: &[&str]) {
+        let a = args(input);
+        let pos = find_subcommand_position(&a).unwrap();
+        let result = process_shortlog_args(a, pos);
         assert_eq!(result, args(expected));
     }
 

@@ -19,7 +19,7 @@ When `anony-git` receives a command that exposes author data, it injects the `--
 | `git log` | Redacted |
 | `git show` | Redacted |
 | `git blame` | Redacted |
-| `git shortlog` | Planned |
+| `git shortlog` | Redacted |
 
 All other commands pass through to `git` without modification.
 
@@ -72,6 +72,3 @@ For a project-specific override, add `git.path` to `.vscode/settings.json` in th
 
 Restart Cursor after saving the setting.
 
-## Roadmap
-
-- `git shortlog` — groups commits by author; its core purpose is to display authors, so this will require a custom formatting strategy
