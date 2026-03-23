@@ -4,13 +4,17 @@ A lightweight `git` wrapper that censors Personally Identifiable Information (PI
 
 ## The Problem
 
-AI tools like Claude Code and Cursor routinely read git history for context — commit logs, diffs, and more. Commands like `git log` and `git show` expose author names and email addresses in their output, leaking PII to the model. This can feel intrusive, and creates friction for teams with strict data handling policies.
+AI tools like [Claude Code](https://code.claude.com) and [Cursor](https://cursor.com/) routinely read git history for context — commit logs, diffs, and more. Commands like `git log` and `git show` expose author names and email addresses in their output, leaking PII to the model. This can feel intrusive, and creates friction for teams with strict data handling policies.
 
 `anony-git` strips author information from `git` commands known to leak it.
 
 ## How It Works
 
-When `anony-git` receives a command that exposes author data, it injects the `--oneline` flag (if available), which limits output to the commit hash and subject line — no author names, no email addresses. If `--oneline` is not available (e.g. `git blame`, `git shortlog`) the output from `git` gets parsed and sanitized. All other commands are proxied as-is, so existing workflows are not disrupted.
+`anony-git` intercepts `git` commands and applies command-specific redaction before proxying to `git`. All other commands pass through unchanged.
+
+- **`git log`, `git show`** — injects `--oneline`, limiting output to the commit hash and subject line with no author or email.
+- **`git blame`** — strips flags that would expose author data (`-p`, `--porcelain`, `--line-porcelain`, `-e`, `--incremental`) and injects `-s` and `--no-show-email` to suppress the author name and email fields.
+- **`git shortlog`** — strips any user-supplied `--group` or `--format` flags and injects `--group=format:%as`, grouping output by date instead of by author or email.
 
 ## Supported Commands
 
@@ -39,15 +43,45 @@ The binary will be located at `./target/release/anony-git`.
 
 #### Claude Code
 
-In your Claude Code terminal session, alias `git` to the `anony-git` binary:
+Shell aliases are not inherited by Claude Code's subprocesses, so a symlink on `PATH` is required instead.
 
+**Step 1** — Create a `git` symlink pointing to the `anony-git` binary:
+
+_macOS / Linux:_
 ```bash
-alias git="~/YOUR_SYSTEM_PATH/anony-git/target/release/anony-git"
+mkdir -p ~/.claude/bin
+ln -s /absolute/path/to/anony-git/target/release/anony-git ~/.claude/bin/git
 ```
 
-_(Replace `YOUR_SYSTEM_PATH` with the path where you cloned the repo.)_
+_Windows (PowerShell, run as Administrator):_
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\bin"
+New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\bin\git.exe" -Target "C:\absolute\path\to\anony-git\target\release\anony-git.exe"
+```
 
-> **Note:** It is recommended to set this alias only within your AI tool's terminal session, and not to export it globally. This keeps the wrapper scoped to the AI's use of `git`, while your own terminal sessions continue to use the real `git` binary.
+**Step 2** — Add the symlink directory to the front of `PATH` in Claude Code's settings. For a global configuration, add the following to your `settings.json`:
+
+_macOS / Linux_ (`~/.claude/settings.json`):
+```json
+{
+  "env": {
+    "PATH": "/home/YOUR_USERNAME/.claude/bin:/usr/local/bin:/usr/bin:/bin"
+  }
+}
+```
+
+_Windows_ (`%USERPROFILE%\.claude\settings.json`):
+```json
+{
+  "env": {
+    "PATH": "C:\\Users\\YOUR_USERNAME\\.claude\\bin;C:\\Windows\\System32;C:\\Windows"
+  }
+}
+```
+
+Replace `YOUR_USERNAME` with your system username and extend the `PATH` value to include any other directories your system requires.
+
+> **Note:** `$PATH` expansion is not supported in the `env` block — the full path must be hardcoded. To scope the configuration to a single project rather than all Claude Code sessions, add the same `env` block to `.claude/settings.json` in the project root instead of the global settings file.
 
 #### Cursor
 
@@ -68,7 +102,7 @@ Replace the path with the absolute path to the binary on your system.
 
 For a project-specific override, add `git.path` to `.vscode/settings.json` in the project root instead.
 
-> **Note:** Shell aliases (e.g. `alias git=...`) do not work for Cursor's built-in git features. The `git.path` setting is required. Unlike the Claude Code alias approach, this also affects Cursor's SCM panel, not just the integrated terminal — which means author information will be redacted from Cursor's source control UI as well.
+> **Note:** Shell aliases (e.g. `alias git=...`) do not work for Cursor's built-in git features. The `git.path` setting is required. This also affects Cursor's SCM panel, not just the integrated terminal — which means author information will be redacted from Cursor's source control UI as well.
 
 Restart Cursor after saving the setting.
 
