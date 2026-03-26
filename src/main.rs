@@ -2,6 +2,7 @@
 mod tests;
 
 use std::env;
+use std::path::PathBuf;
 use std::process::{Command, exit};
 
 /// Git global options that consume the next argument as a value.
@@ -32,11 +33,36 @@ const BLAME_BLOCKED_FLAGS: [&str; 5] = [
 /// as they could otherwise reintroduce author, email, or display name into output.
 const SHORTLOG_BLOCKED_FLAG_PREFIXES: [&str; 2] = ["--group", "--format"];
 
+/// Find the real git binary by walking PATH, skipping any entry that resolves
+/// to the current executable (to avoid calling ourselves recursively when
+/// installed as a `git` symlink on PATH).
+fn find_real_git() -> Option<PathBuf> {
+    let current_exe = env::current_exe().ok()?.canonicalize().ok()?;
+    let path_var = env::var("PATH").ok()?;
+
+    for dir in env::split_paths(&path_var) {
+        let candidate = dir.join("git");
+        if let Ok(canonical) = candidate.canonicalize() {
+            if canonical != current_exe {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let git_args = process_args(args);
 
-    let output = Command::new("git").args(&git_args).output();
+    let git_path = match find_real_git() {
+        Some(path) => path,
+        None => {
+            eprintln!("anony-git: could not find git on PATH");
+            exit(1);
+        }
+    };
+    let output = Command::new(git_path).args(&git_args).output();
 
     match output {
         Ok(result) => {
