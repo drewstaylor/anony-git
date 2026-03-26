@@ -59,13 +59,32 @@ New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\bin"
 New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.claude\bin\git.exe" -Target "C:\absolute\path\to\anony-git\target\release\anony-git.exe"
 ```
 
-**Step 2** — Add the symlink directory to the front of `PATH` in Claude Code's settings. For a global configuration, add the following to your `settings.json`:
+**Step 2** — Add the symlink directory to the front of `PATH` in Claude Code's settings.
+
+> **Critical:** Claude Code does not support `$PATH` expansion in the `env` block — you must hardcode the full path string. Do **not** just paste a minimal example like `/usr/bin:/bin`. If you omit directories that your system tools live in (Homebrew, nvm, Cargo, pyenv, etc.), Claude Code will lose access to those tools entirely, breaking commands that rely on them.
+
+The safe approach is to prepend `~/.claude/bin` to your **existing `PATH`**. First, print your current PATH in a terminal:
+
+```bash
+echo $PATH
+```
+
+Then, in your `settings.json`, paste that output as the value — with `~/.claude/bin:` (macOS/Linux) or `%USERPROFILE%\.claude\bin;` (Windows) added to the **front**:
 
 _macOS / Linux_ (`~/.claude/settings.json`):
 ```json
 {
   "env": {
-    "PATH": "/home/YOUR_USERNAME/.claude/bin:/usr/local/bin:/usr/bin:/bin"
+    "PATH": "/Users/YOUR_USERNAME/.claude/bin:<paste your echo $PATH output here>"
+  }
+}
+```
+
+For example, a realistic entry might look like:
+```json
+{
+  "env": {
+    "PATH": "/Users/alice/.claude/bin:/opt/homebrew/bin:/Users/alice/.nvm/versions/node/v24.7.0/bin:/usr/local/bin:/usr/bin:/bin:/Users/alice/.cargo/bin"
   }
 }
 ```
@@ -74,14 +93,14 @@ _Windows_ (`%USERPROFILE%\.claude\settings.json`):
 ```json
 {
   "env": {
-    "PATH": "C:\\Users\\YOUR_USERNAME\\.claude\\bin;C:\\Windows\\System32;C:\\Windows"
+    "PATH": "C:\\Users\\YOUR_USERNAME\\.claude\\bin;<paste your $env:PATH output here>"
   }
 }
 ```
 
-Replace `YOUR_USERNAME` with your system username and extend the `PATH` value to include any other directories your system requires.
+> **Note:** To scope the configuration to a single project rather than all Claude Code sessions, add the same `env` block to `.claude/settings.json` in the project root instead of the global settings file.
 
-> **Note:** `$PATH` expansion is not supported in the `env` block — the full path must be hardcoded. To scope the configuration to a single project rather than all Claude Code sessions, add the same `env` block to `.claude/settings.json` in the project root instead of the global settings file.
+**How it works without infinite recursion:** When `anony-git` (symlinked as `git`) is invoked, it detects its own location on `PATH` and skips it when searching for the real `git` binary — so placing `~/.claude/bin` first is safe and won't cause `anony-git` to call itself.
 
 #### Cursor
 
@@ -103,6 +122,8 @@ Replace the path with the absolute path to the binary on your system.
 For a project-specific override, add `git.path` to `.vscode/settings.json` in the project root instead.
 
 > **Note:** Shell aliases (e.g. `alias git=...`) do not work for Cursor's built-in git features. The `git.path` setting is required. This also affects Cursor's SCM panel, not just the integrated terminal — which means author information will be redacted from Cursor's source control UI as well.
+
+Unlike the Claude Code setup, Cursor's `git.path` points directly to the `anony-git` binary — there is no `git` symlink involved, so there is no risk of infinite recursion. `anony-git` finds the real `git` by searching the `PATH` that Cursor inherits from your shell environment, which already contains the system `git`.
 
 Restart Cursor after saving the setting.
 
