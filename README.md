@@ -102,6 +102,32 @@ _Windows_ (`%USERPROFILE%\.claude\settings.json`):
 
 **How it works without infinite recursion:** When `anony-git` (symlinked as `git`) is invoked, it detects its own location on `PATH` and skips it when searching for the real `git` binary — so placing `~/.claude/bin` first is safe and won't cause `anony-git` to call itself.
 
+##### Troubleshooting: If `settings.json` doesn't work
+
+If you're unable to extend the `PATH` used by Claude Code's subprocesses using the `settings.json` approach above, you can create shell aliases to toggle `~/.claude/bin` on and off for individual terminal sessions.
+
+Add the following to your `~/.bash_profile` (or `~/.zshrc` for Zsh):
+
+```bash
+alias anonygit-on='export PATH="$HOME/.claude/bin:$PATH"'
+alias anonygit-off='export PATH="<your original PATH without ~/.claude/bin>"'
+```
+
+To create the `anonygit-off` alias, first print your current `PATH` (before enabling anony-git):
+
+```bash
+echo $PATH
+```
+
+Then paste that output as the value in `anonygit-off`. For example:
+
+```bash
+alias anonygit-on='export PATH="$HOME/.claude/bin:$PATH"'
+alias anonygit-off='export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.cargo/bin"'
+```
+
+After sourcing your profile (`source ~/.bash_profile` or `source ~/.zshrc`), you can run `anonygit-on` before starting Claude Code to enable redaction, and `anonygit-off` to restore your original `PATH`.
+
 #### Cursor
 
 Add the following to your Cursor `settings.json`:
