@@ -42,11 +42,10 @@ fn find_real_git() -> Option<PathBuf> {
 
     for dir in env::split_paths(&path_var) {
         let candidate = dir.join("git");
-        if let Ok(canonical) = candidate.canonicalize() {
-            if canonical != current_exe {
+        if let Ok(canonical) = candidate.canonicalize()
+            && canonical != current_exe {
                 return Some(candidate);
             }
-        }
     }
     None
 }
