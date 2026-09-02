@@ -104,13 +104,14 @@ _Windows_ (`%USERPROFILE%\.claude\settings.json`):
 
 ##### Troubleshooting: If `settings.json` doesn't work
 
-If you're unable to extend the `PATH` used by Claude Code's subprocesses using the `settings.json` approach above, you can create shell aliases to toggle `~/.claude/bin` on and off for individual terminal sessions.
+If you're unable to extend the `PATH` used by Claude Code's subprocesses using the `settings.json` approach above, you can create shell aliases to toggle `~/.claude/bin` on and off, and check the anony-git status, for individual terminal sessions.
 
 Add the following to your `~/.bash_profile` (or `~/.zshrc` for Zsh):
 
 ```bash
 alias anonygit-on='export PATH="$HOME/.claude/bin:$PATH"'
 alias anonygit-off='export PATH="<your original PATH without ~/.claude/bin>"'
+alias anonygit-status='if [[ $PATH == *"claude"* ]]; then echo "anony-git is enabled"; else echo "anony-git is disabled"; fi'
 ```
 
 To create the `anonygit-off` alias, first print your current `PATH` (before enabling anony-git):
@@ -124,6 +125,7 @@ Then paste that output as the value in `anonygit-off`. For example:
 ```bash
 alias anonygit-on='export PATH="$HOME/.claude/bin:$PATH"'
 alias anonygit-off='export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.cargo/bin"'
+alias anonygit-status='if [[ $PATH == *"claude"* ]]; then echo "anony-git is enabled"; else echo "anony-git is disabled"; fi'
 ```
 
 After sourcing your profile (`source ~/.bash_profile` or `source ~/.zshrc`), you can run `anonygit-on` before starting Claude Code to enable redaction, and `anonygit-off` to restore your original `PATH`.
