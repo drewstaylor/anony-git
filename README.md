@@ -123,9 +123,7 @@ echo $PATH
 Then paste that output as the value in `anonygit-off`. For example:
 
 ```bash
-alias anonygit-on='export PATH="$HOME/.claude/bin:$PATH"'
 alias anonygit-off='export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.cargo/bin"'
-alias anonygit-status='if [[ $PATH == *"claude"* ]]; then echo "anony-git is enabled"; else echo "anony-git is disabled"; fi'
 ```
 
 After sourcing your profile (`source ~/.bash_profile` or `source ~/.zshrc`), you can run `anonygit-on` before starting Claude Code to enable redaction, and `anonygit-off` to restore your original `PATH`.
