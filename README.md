@@ -126,7 +126,7 @@ Then paste that output as the value in `anonygit-off`. For example:
 alias anonygit-off='export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$HOME/.cargo/bin"'
 ```
 
-After sourcing your profile (`source ~/.bash_profile` or `source ~/.zshrc`), you can run `anonygit-on` before starting Claude Code to enable redaction, and `anonygit-off` to restore your original `PATH`. Also, note that your `anonygit-off` value may need to be revisited and updated as your default $PATH value changes over time. 
+After sourcing your profile (`source ~/.bash_profile` or `source ~/.zshrc`), you can run `anonygit-on` before starting Claude Code to enable redaction, and `anonygit-off` to restore your original `PATH`. Also, note that your `anonygit-off` alias value may need to be revisited and updated as your default `$PATH` value evolves over time. 
 
 #### Cursor
 
